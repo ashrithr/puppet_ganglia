@@ -5,7 +5,7 @@ class ganglia::client (
   $send_metadata_interval = hiera('ganglia_send_metadata_interval', 0),
   $udp_port = hiera('ganglia_udp_port', 8649),
   $unicast_listen_port = hiera('ganalia_unicast_listen_port', 8649),
-  $unicast_ipaddress = hiera('ganglia_server'),
+  $unicast_ipaddress = hiera('ganglia_server', 'localhost'),
   $unicast_port = hiera('ganglia_unicast_port', '8649'),
   $network_mode = hiera('ganalia_network_mode', 'unicast'),
   ) {
