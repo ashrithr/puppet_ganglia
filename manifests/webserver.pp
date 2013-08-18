@@ -14,21 +14,22 @@ class ganglia::webserver {
       $apacheservice = "httpd"
     }
   }
+  $ganglia_web_conf = "/usr/share/ganglia-web/conf.php"
 
   include ganglia
 
-  file { "/tmp/ganglia.tar":
+  file { "/tmp/ganglia-web-3.5.10.tar":
     mode    => 0644,
     source  => "puppet:///modules/${module_name}/ganglia-web-3.5.10.tar",
-    alias   => "ganglia-web-tar",
-    before  => Exec["untar-ganglia-web"]
+    alias   => "ganglia-web-tar"
   }
 
-  exec { "untar-ganglia-web":
-    command     => "/bin/tar -xf /tmp/ganglia-web-3.5.10.tar -C /usr/share",
+  exec { "untar ganglia-web-3.5.10.tar":
+    command     => "/bin/tar -xf /tmp/ganglia-web-3.5.10.tar -C /usr/share/",
     creates     => "/usr/share/ganglia-web-3.5.10",
+    alias       => "untar-ganglia-web",
     refreshonly => true,
-    before      => File["ganglia-web-dir"]
+    subscribe   => File["ganglia-web-tar"]
   }
 
   file { "/usr/share/ganglia-web":
@@ -36,6 +37,7 @@ class ganglia::webserver {
     target  => "/usr/share/ganglia-web-3.5.10",
     mode    => 0644,
     alias   => 'ganglia-web-dir',
+    require => Exec["untar-ganglia-web"]
   }
 
   file { "/var/lib/ganglia":
@@ -43,7 +45,8 @@ class ganglia::webserver {
     owner   => "root",
     group   => "root",
     mode    => 0755,
-    alias   => "ganglia-lib"
+    alias   => "ganglia-lib",
+    require => File["ganglia-web-dir"]
   }
 
   file { ["/var/lib/ganglia/dwoo", "/var/lib/ganglia/dwoo/cache", "/var/lib/ganglia/dwoo/compiled"]:
@@ -51,28 +54,43 @@ class ganglia::webserver {
     owner   => "apache",
     group   => "apache",
     mode    => 0755,
-    require => File['ganglia-lib']
+    require => [File['ganglia-lib'], Package[$apacheservice]]
   }
 
   file { "/var/lib/ganglia/rrds":
     ensure  => "directory",
-    owber   => "ganglia",
+    owner   => "ganglia",
     group   => "ganglia",
     mode    => 0755,
     require => File["ganglia-lib"]
   }
 
-  file { "/usr/share/ganglia-web/conf.php":
-    ensure => file,
+  file { "/var/lib/ganglia/conf":
+    ensure  => "directory",
+    owner   => "apache",
+    group   => "apache",
+    mode    => 0755,
+    require => [File["ganglia-lib"], Package[$apacheservice]]
+  }
+
+  file { $ganglia_web_conf:
     content => template("ganglia/conf.php.erb"),
     require => File["ganglia-web-dir"]
   }
 
-   file {$ganglia_webserver_path:
+  package { $apacheservice:
+    ensure => installed,
+  }
+
+  package { "php":
+    ensure => installed,
+  }
+
+  file {$ganglia_webserver_path:
     ensure  => present,
-    require => Package['ganglia_webserver'],
     content => template("ganglia/$ganglia_apache_conf"),
-    notify  => Exec['refresh-apache']
+    notify  => Exec['refresh-apache'],
+    require => [File["ganglia-web-dir"], Package[$apacheservice], Package['php']]
   }
 
   exec { "refresh-apache":
